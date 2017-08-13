@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,15 +63,27 @@
       void Init();
 
       /**
+       * Home all axes according to settings
+       *
+       * Parameters
+       *
+       *  None  Home to all axes with no parameters.
+       *        With QUICK_HOME enabled XY will home together, then Z.
+       *
+       * Cartesian parameters
+       *
+       *  X   Home to the X endstop
+       *  Y   Home to the Y endstop
+       *  Z   Home to the Z endstop
+       *
+       */
+      void Home(const bool always_home_all);
+
+      /**
        * Prepare a single move and get ready for the next one
        * If Mesh Bed Leveling is enabled, perform a mesh move.
        */
       void prepare_move_to_destination();
-
-      /**
-       * Home Cartesian
-       */
-      void Home(const bool always_home_all);
 
       /**
        * Set an axis' current position to its home position (after homing).
@@ -142,6 +154,14 @@
        *  Home axis
        */
       void homeaxis(const AxisEnum axis);
+
+      /**
+       * Prepare a linear move in a Cartesian setup.
+       * If Mesh Bed Leveling is enabled, perform a mesh move.
+       *
+       * Returns true if the caller didn't update current_position.
+       */
+      bool prepare_move_to_destination_cartesian();
 
       /**
        * Prepare a linear move in a dual X axis setup

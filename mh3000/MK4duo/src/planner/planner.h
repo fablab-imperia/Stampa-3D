@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -153,6 +153,10 @@ class Planner {
  	   */
     static uint32_t cutoff_long;
 
+    #if ENABLED(LIN_ADVANCE)
+      static float extruder_advance_k, advance_ed_ratio;
+    #endif
+
   private:
 
     /**
@@ -179,6 +183,10 @@ class Planner {
       static unsigned char old_direction_bits;
       // Segment times (in µs). Used for speed calculations
       static long axis_segment_time[2][3];
+    #endif
+
+    #if ENABLED(LIN_ADVANCE)
+      static float position_float[NUM_AXIS];
     #endif
 
     #if ENABLED(ULTRA_LCD)
@@ -247,9 +255,9 @@ class Planner {
      * The target is cartesian, it's translated to delta/scara if
      * needed.
      *
-     *  ltarget  - x,y,z,e CARTESIAN target in mm
-     *  fr_mm_s  - (target) speed of the move (mm/s)
-     *  extruder - target extruder
+     *  ltarget   - x,y,z,e CARTESIAN target in mm
+     *  fr_mm_s   - (target) speed of the move (mm/s)
+     *  extruder  - target extruder
      */
     static FORCE_INLINE void buffer_line_kinematic(const float ltarget[XYZE], const float &fr_mm_s, const uint8_t extruder) {
       #if HAS_LEVELING || ENABLED(ZWOBBLE) || ENABLED(HYSTERESIS)

@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -134,11 +134,11 @@
 #define MSG_KILLED                          _UxGT("已殺掉")  //"KILLED. "
 #define MSG_STOPPED                         _UxGT("已停止")  //"STOPPED. "
 #define MSG_CONTROL_RETRACT                 _UxGT("回抽長度mm")  //"Retract mm" retract_length, retract length (positive mm)
-#define MSG_CONTROL_RETRACT_SWAP            _UxGT("換手回抽長度mm")  //"Swap Re.mm" retract_length_swap, swap retract length (positive mm), for extruder change
+#define MSG_CONTROL_RETRACT_SWAP            _UxGT("換手回抽長度mm")  //"Swap Re.mm" swap_retract_length, swap retract length (positive mm), for extruder change
 #define MSG_CONTROL_RETRACTF                _UxGT("回抽速率mm/s")  //"Retract  V" retract_feedrate_mm_s, feedrate for retracting (mm/s)
 #define MSG_CONTROL_RETRACT_ZLIFT           _UxGT("Hop mm")  //"Hop mm" retract_zlift, retract Z-lift
 #define MSG_CONTROL_RETRACT_RECOVER         _UxGT("回抽恢複長度mm")  //"UnRet +mm" retract_recover_length, additional recover length (mm, added to retract length when recovering)
-#define MSG_CONTROL_RETRACT_RECOVER_SWAP    _UxGT("換手回抽恢複長度mm")  //"S UnRet+mm" retract_recover_length_swap, additional swap recover length (mm, added to retract length when recovering from extruder change)
+#define MSG_CONTROL_RETRACT_RECOVER_SWAP    _UxGT("換手回抽恢複長度mm")  //"S UnRet+mm" swap_retract_recover_length, additional swap recover length (mm, added to retract length when recovering from extruder change)
 #define MSG_CONTROL_RETRACT_RECOVERF        _UxGT("回抽恢複後進料速率mm/s")  //"UnRet  V" retract_recover_feedrate_mm_s, feedrate for recovering from retraction (mm/s)
 #define MSG_AUTORETRACT                     _UxGT("自動抽回")  //"AutoRetr." autoretract_enabled,
 #define MSG_FILAMENTCHANGE                  _UxGT("更換絲料")  //"Change filament"
@@ -147,7 +147,7 @@
 #define MSG_ZPROBE_OUT                      _UxGT("Z探針在熱床之外")  //"Z probe out. bed" Z probe is not within the physical limits
 #define MSG_HOME                            _UxGT("歸位")  //"Home"  // Used as MSG_HOME " " MSG_X MSG_Y MSG_Z " " MSG_FIRST
 #define MSG_FIRST                           _UxGT("先")  //"first"
-#define MSG_ZPROBE_ZOFFSET                  _UxGT("Z偏移")  //"Z Offset"
+#define MSG_PROBE_OFFSET                  _UxGT("Z偏移")  //"Z Offset"
 #define MSG_BABYSTEP_X                      _UxGT("微量調整X軸")  //"Babystep X" lcd_babystep_x, Babystepping enables the user to control the axis in tiny amounts
 #define MSG_BABYSTEP_Y                      _UxGT("微量調整Y軸")  //"Babystep Y"
 #define MSG_BABYSTEP_Z                      _UxGT("微量調整Z軸")  //"Babystep Z"

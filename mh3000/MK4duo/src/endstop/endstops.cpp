@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,10 @@
 
 #include "../../base.h"
 
+#if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
+  #include "../HAL/HAL_endstop_interrupts.h"
+#endif
+
 // TEST_ENDSTOP: test the old and the current status of an endstop
 #define TEST_ENDSTOP(ENDSTOP) (TEST(current_endstop_bits & old_endstop_bits, ENDSTOP))
 
@@ -37,13 +41,8 @@ float Endstops::soft_endstop_min[XYZ] = { X_MIN_POS, Y_MIN_POS, Z_MIN_POS },
       Endstops::soft_endstop_max[XYZ] = { X_MAX_POS, Y_MAX_POS, Z_MAX_POS };
 
 bool  Endstops::enabled = true,
-      Endstops::enabled_globally =
-        #if ENABLED(ENDSTOPS_ONLY_FOR_HOMING)
-          (false),
-        #else
-          (true),
-        #endif
-      Endstops::soft_endstops_enabled = true;
+      Endstops::soft_endstops_enabled = true,
+      Endstops::enabled_globally;
 
 #if ENABLED(Z_FOUR_ENDSTOPS)
   float Endstops::z2_endstop_adj = 0,
@@ -57,6 +56,9 @@ bool  Endstops::enabled = true,
 #endif
 
 volatile char Endstops::endstop_hit_bits; // use X_MIN, Y_MIN, Z_MIN and Z_MIN_PROBE as BIT value
+
+volatile uint8_t Endstops::e_hit = 0; // Different from 0 when the endstops shall be tested in detail.
+                                      // Must be reset to 0 by the test function when the tests are finished.
 
 #if ENABLED(Z_TWO_ENDSTOPS) || ENABLED(Z_THREE_ENDSTOPS) || ENABLED(Z_FOUR_ENDSTOPS) || ENABLED(NPR2)
   uint16_t
@@ -208,7 +210,7 @@ void Endstops::report_state() {
     _ENDSTOP_HIT_TEST(Y, 'Y');
     _ENDSTOP_HIT_TEST(Z, 'Z');
 
-    #if ENABLED(Z_PROBE_ENDSTOP)
+    #if HAS_Z_PROBE_PIN
       #define P_AXIS Z_AXIS
       if (TEST(endstop_hit_bits, Z_PROBE)) _ENDSTOP_HIT_ECHO(P, 'P');
     #endif
@@ -291,16 +293,20 @@ void Endstops::M119() {
  * Constrain the given coordinates to the software endstops.
  */
 void Endstops::clamp_to_software_endstops(float target[XYZ]) {
+  if (!soft_endstops_enabled) return;
   #if HAS_SOFTWARE_ENDSTOPS
-    if (!soft_endstops_enabled) return;
     #if ENABLED(MIN_SOFTWARE_ENDSTOPS)
-      NOLESS(target[X_AXIS], soft_endstop_min[X_AXIS]);
-      NOLESS(target[Y_AXIS], soft_endstop_min[Y_AXIS]);
+      #if NOMECH(DELTA)
+        NOLESS(target[X_AXIS], soft_endstop_min[X_AXIS]);
+        NOLESS(target[Y_AXIS], soft_endstop_min[Y_AXIS]);
+      #endif
       NOLESS(target[Z_AXIS], soft_endstop_min[Z_AXIS]);
     #endif
     #if ENABLED(MAX_SOFTWARE_ENDSTOPS)
-      NOMORE(target[X_AXIS], soft_endstop_max[X_AXIS]);
-      NOMORE(target[Y_AXIS], soft_endstop_max[Y_AXIS]);
+      #if NOMECH(DELTA)
+        NOMORE(target[X_AXIS], soft_endstop_max[X_AXIS]);
+        NOMORE(target[Y_AXIS], soft_endstop_max[Y_AXIS]);
+      #endif
       NOMORE(target[Z_AXIS], soft_endstop_max[Z_AXIS]);
     #endif
   #else
@@ -327,19 +333,19 @@ void Endstops::clamp_to_software_endstops(float target[XYZ]) {
     #if ENABLED(DUAL_X_CARRIAGE)
       if (axis == X_AXIS) {
 
-        // In Dual X mode hotend_offset[X] is T1's home position
-        float dual_max_x = max(hotend_offset[X_AXIS][1], X2_MAX_POS);
+        // In Dual X mode printer.hotend_offset[X] is T1's home position
+        float dual_max_x = max(printer.hotend_offset[X_AXIS][1], X2_MAX_POS);
 
-        if (active_extruder != 0) {
+        if (tools.active_extruder != 0) {
           // T1 can move from X2_MIN_POS to X2_MAX_POS or X2 home position (whichever is larger)
           soft_endstop_min[X_AXIS] = X2_MIN_POS + offs;
           soft_endstop_max[X_AXIS] = dual_max_x + offs;
         }
-        else if (dual_x_carriage_mode == DXC_DUPLICATION_MODE) {
+        else if (mechanics.dual_x_carriage_mode == DXC_DUPLICATION_MODE) {
           // In Duplication Mode, T0 can move as far left as X_MIN_POS
           // but not so far to the right that T1 would move past the end
           soft_endstop_min[X_AXIS] = mechanics.base_min_pos[X_AXIS] + offs;
-          soft_endstop_max[X_AXIS] = min(mechanics.base_max_pos[X_AXIS], dual_max_x - duplicate_hotend_x_offset) + offs;
+          soft_endstop_max[X_AXIS] = min(mechanics.base_max_pos[X_AXIS], dual_max_x - mechanics.duplicate_hotend_x_offset) + offs;
         }
         else {
           // In other modes, T0 can move from X_MIN_POS to X_MAX_POS
@@ -482,7 +488,7 @@ void Endstops::update() {
   #define _ENDSTOP(AXIS, MINMAX) AXIS ##_## MINMAX
   #define _ENDSTOP_PIN(AXIS, MINMAX) AXIS ##_## MINMAX ##_PIN
   #define _ENDSTOP_INVERTING(AXIS, MINMAX) AXIS ##_## MINMAX ##_ENDSTOP_INVERTING
-  #define _ENDSTOP_HIT(AXIS) SBI(endstop_hit_bits, _ENDSTOP(AXIS, MIN))
+  #define _ENDSTOP_HIT(AXIS, MINMAX) SBI(endstop_hit_bits, _ENDSTOP(AXIS, MINMAX))
 
   // UPDATE_ENDSTOP_BIT: set the current endstop bits for an endstop to its status
   #define UPDATE_ENDSTOP_BIT(AXIS, MINMAX) SET_BIT(current_endstop_bits, _ENDSTOP(AXIS, MINMAX), (READ(_ENDSTOP_PIN(AXIS, MINMAX)) != _ENDSTOP_INVERTING(AXIS, MINMAX)))
@@ -492,20 +498,20 @@ void Endstops::update() {
   #define UPDATE_ENDSTOP(AXIS,MINMAX) do { \
       UPDATE_ENDSTOP_BIT(AXIS, MINMAX); \
       if (TEST_ENDSTOP(_ENDSTOP(AXIS, MINMAX)) && stepper.current_block->steps[AXIS ##_AXIS] > 0) { \
-        _ENDSTOP_HIT(AXIS); \
+        _ENDSTOP_HIT(AXIS, MINMAX); \
         stepper.endstop_triggered(AXIS ##_AXIS); \
       } \
     } while(0)
 
   #if ENABLED(G38_PROBE_TARGET) && HAS_Z_PROBE_PIN && !(CORE_IS_XY || CORE_IS_XZ)
     // If G38 command is active check Z_MIN_PROBE for ALL movement
-    if (G38_move) {
+    if (printer.G38_move) {
       UPDATE_ENDSTOP_BIT(Z, PROBE);
       if (TEST_ENDSTOP(_ENDSTOP(Z, PROBE))) {
-        if      (stepper.current_block->steps[X_AXIS] > 0) { _ENDSTOP_HIT(X); stepper.endstop_triggered(X_AXIS); }
-        else if (stepper.current_block->steps[Y_AXIS] > 0) { _ENDSTOP_HIT(Y); stepper.endstop_triggered(Y_AXIS); }
-        else if (stepper.current_block->steps[Z_AXIS] > 0) { _ENDSTOP_HIT(Z); stepper.endstop_triggered(Z_AXIS); }
-        G38_endstop_hit = true;
+        if      (stepper.current_block->steps[X_AXIS] > 0) { _ENDSTOP_HIT(X, MIN); stepper.endstop_triggered(X_AXIS); }
+        else if (stepper.current_block->steps[Y_AXIS] > 0) { _ENDSTOP_HIT(Y, MIN); stepper.endstop_triggered(Y_AXIS); }
+        else if (stepper.current_block->steps[Z_AXIS] > 0) { _ENDSTOP_HIT(Z, MIN); stepper.endstop_triggered(Z_AXIS); }
+        printer.G38_endstop_hit = true;
       }
     }
   #endif

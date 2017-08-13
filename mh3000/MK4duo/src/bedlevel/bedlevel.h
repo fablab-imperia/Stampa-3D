@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,11 +39,11 @@
 
 #if HAS_LEVELING
 
-  #if HAS_ABL
+  #if ABL_PLANAR
     #include "vector_3.h"
   #endif
   #if ENABLED(AUTO_BED_LEVELING_LINEAR)
-    #include "qr_solve.h"
+    #include "least_squares_fit.h"
   #elif ENABLED(MESH_BED_LEVELING)
     #include "mesh_bed_leveling.h"
   #endif
@@ -92,6 +92,12 @@
                       z_values[GRID_MAX_POINTS_X][GRID_MAX_POINTS_Y];
       #endif
 
+      #if ENABLED(PROBE_MANUALLY)
+        static bool g29_in_progress;
+      #else
+        static const bool g29_in_progress;
+      #endif
+
     public: /** Public Function */
 
       /**
@@ -138,6 +144,14 @@
       #if ENABLED(MESH_BED_LEVELING)
         static void mesh_probing_done();
         static void mbl_mesh_report();
+      #endif
+
+      #if ENABLED(DEBUG_LEVELING_FEATURE)
+        void print_xyz(const char* prefix, const char* suffix, const float x, const float y, const float z);
+        void print_xyz(const char* prefix, const char* suffix, const float xyz[]);
+        #if ABL_PLANAR
+          void print_xyz(const char* prefix, const char* suffix, const vector_3 &xyz);
+        #endif
       #endif
 
     private: /** Private Parameters */

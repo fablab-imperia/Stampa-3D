@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,11 +64,13 @@
     read()      - Gets the last written servo pulse width as an angle between 0 and 180. 
     readMicroseconds()   - Gets the last written servo pulse width in microseconds. (was read_us() in first release)
     attached()  - Returns true if there is a servo attached. 
-    detach()    - Stops an attached servos from pulsing its i/o pin. 
+    detach()    - Stops an attached servos from pulsing its i/o pin.
+    move(angle) - Sequence of attach(0), write(angle),
+                    With DEACTIVATE_SERVOS_AFTER_MOVE wait SERVO_DELAY and detach.
  */
 
-#ifndef _SERVO_H
-#define _SERVO_H
+#ifndef _SERVO_H_
+#define _SERVO_H_
 
 #if HAS_SERVOS
 
@@ -97,6 +99,8 @@
 
   #define MOVE_SERVO(I, P)    servo[I].move(P)
 
+  extern void servo_init();
+
   typedef struct {
     uint8_t nbr        :6 ;             // a pin number from 0 to 63
     uint8_t isActive   :1 ;             // true if this channel is enabled, pin not pulsed if false
@@ -108,8 +112,11 @@
   } ServoInfo_t;
 
   class Servo {
+
     public:
+
       Servo();
+
       uint8_t attach(int pin);           // attach the given pin to the next free channel, sets pinMode, returns channel number or 0 if failure
       uint8_t attach(int pin, int min, int max); // as above but also sets min and max values for writes.
       void detach();
@@ -123,13 +130,15 @@
       bool attached();                   // return true if this servo is attached, otherwise false
 
     private:
+
       uint8_t servoIndex;               // index into the channel data for this servo
       int8_t min;                       // minimum is this value times 4 added to MIN_PULSE_WIDTH
       int8_t max;                       // maximum is this value times 4 added to MAX_PULSE_WIDTH
+
   };
 
   extern Servo servo[NUM_SERVOS];
 
 #endif // SERVOS
 
-#endif // _SERVO_H
+#endif /* _SERVO_H_ */

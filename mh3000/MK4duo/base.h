@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,15 +96,17 @@
   #include "src/cncrouter/cncrouter.h"
 #endif
 
+#include "src/tools/tools.h"
+#include "src/tools/nozzle.h"
+#include "src/commands/commands.h"
 #include "src/mechanics/mechanics.h"
+#include "src/probe/probe.h"
 #include "src/bedlevel/bedlevel.h"
-#include "src/bedlevel/probe.h"
-#include "src/parser/parser.h"
 #include "src/eeprom/eeprom.h"
 #include "src/printcounter/duration_t.h"
 #include "src/printcounter/printcounter.h"
-#include "src/utility/power_supply.h"
-#include "src/MK_Main.h"
+#include "src/power/power.h"
+#include "src/printer/printer.h"
 #include "src/planner/planner.h"
 #include "src/endstop/endstops.h"
 #include "src/stepper/stepper.h"
@@ -113,11 +115,19 @@
 #include "src/lcd/ultralcd.h"
 #include "src/lcd/buzzer.h"
 #include "src/nextion/Nextion_lcd.h"
+#include "src/mfrc522/mfrc522.h"
 #include "src/sd/cardreader.h"
 #include "src/servo/servo.h"
-#include "src/utility/nozzle.h"
-#include "src/utility/blinkm.h"
+
 #include "src/utility/hex_print_routines.h"
+
+#if ENABLED(BLINKM)
+  #include "src/rgbled/blinkm.h"
+#elif ENABLED(PCA9632)
+  #include "src/rgbled/pca9632.h"
+#elif HAS_NEOPIXEL
+  #include "src/rgbled/Adafruit_NeoPixel.h"
+#endif
 
 #if MB(ALLIGATOR) || MB(ALLIGATOR_V3)
   #include "src/alligator/external_dac.h"
@@ -125,10 +135,6 @@
 
 #if HAS_DIGIPOTSS
   #include <SPI.h>
-#endif
-
-#if ENABLED(RFID_MODULE)
-  #include "src/mfrc522/MFRC522_serial.h"
 #endif
 
 #if ENABLED(HAVE_TMCDRIVER)

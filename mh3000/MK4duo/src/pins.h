@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef PINS_H
-#define PINS_H
+#ifndef _PINS_H_
+#define _PINS_H_
 
 #define EEPROM_NONE 0
 #define EEPROM_I2C  1
@@ -39,87 +39,8 @@
 
 
 /****************************************************************************************
-******************** Available chip select pins for HW SPI ******************************
-*****************************************************************************************/
-#if ENABLED(__AVR_ATmega1280__) || ENABLED(__AVR_ATmega2560__)
-  #define MOSI_PIN            51
-  #define MISO_PIN            50
-  #define SCK_PIN             52
-  #define SS_PIN              53
-#elif ENABLED(__AVR_ATmega644P__) || ENABLED(__AVR_ATmega644__) || ENABLED(__AVR_ATmega1284P__)
-  #define MOSI_PIN             5
-  #define MISO_PIN             6
-  #define SCK_PIN              7
-  #define SS_PIN               4
-#elif ENABLED(__AVR_ATmega32U4__)
-  #define MOSI_PIN             2
-  #define MISO_PIN             3
-  #define SCK_PIN              1
-  #define SS_PIN               4
-#elif ENABLED(__AVR_AT90USB646__) || ENABLED(__AVR_AT90USB1286__)
-  #define MOSI_PIN            22
-  #define MISO_PIN            23
-  #define SCK_PIN             21
-  #define SS_PIN              20
-#elif ENABLED(__AVR_ATmega168__) ||ENABLED(__AVR_ATmega168P__) ||ENABLED(__AVR_ATmega328P__)
-  #define MOSI_PIN            11
-  #define MISO_PIN            12
-  #define SCK_PIN             13
-  #define SS_PIN              10
-#elif ENABLED(__AVR_ATmega1281__)
-  #define MOSI_PIN            11
-  #define MISO_PIN            12
-  #define SCK_PIN             10
-  #define SS_PIN              16
-#elif ENABLED(ARDUINO_ARCH_SAM)
-  #if (SDSS == 4) || (SDSS == 10) || (SDSS == 52)|| (SDSS == 59) || (SDSS == 60) || (SDSS == 77)
-    #if (SDSS == 4)
-      #define SPI_PIN         87
-      #define SPI_CHAN        1
-    #elif (SDSS == 10)
-      #define SPI_PIN         77
-      #define SPI_CHAN        0
-    #elif (SDSS == 52)
-      #define SPI_PIN         86
-      #define SPI_CHAN        2
-    #elif (SDSS == 59)
-      #if ENABLED(REPRAPWORLD_GRAPHICAL_LCD) && MB(ULTRATRONICS)
-        #define DUE_SOFTWARE_SPI
-      #else
-        #define SPI_PIN       4
-        #define SPI_CHAN      1
-      #endif
-    #elif (SDSS == 60)
-      #define SPI_PIN         60
-      #define SPI_CHAN        1
-    #else
-      #define SPI_PIN         77
-      #define SPI_CHAN        0
-    #endif
-    #define MISO_PIN          74
-    #define MOSI_PIN          75
-    #define SCK_PIN           76
-  #else
-    #define DUE_SOFTWARE_SPI
-    #define MOSI_PIN		      51
-    #define MISO_PIN		      50
-    #define SCK_PIN 		      52
-  #endif
-
-  #if ENABLED(REPRAPWORLD_GRAPHICAL_LCD) && MB(ULTRATRONICS)
-    #define SS_PIN            4
-  #else
-    #define SS_PIN            SDSS
-  #endif
-
-#endif
-/****************************************************************************************/
-
-
-
-/****************************************************************************************
-********************************* END MOTHERBOARD ***************************************
-****************************************************************************************/
+ ********************************* END MOTHERBOARD **************************************
+ ****************************************************************************************/
 
 #if DISABLED(ORIG_X_CS_PIN)
   #define ORIG_X_CS_PIN       -1
@@ -299,31 +220,36 @@
 #include "../Configuration_Pins.h"
 /****************************************************************************************/
 
-#if DISABLED(DUAL_X_CARRIAGE)
-  #if X_HOME_DIR > 0    // Home X to MAX
-    #undef X_MIN_PIN
-    #define X_MIN_PIN -1
-  #elif X_HOME_DIR < 0  // Home X to MIN
-    #undef X_MAX_PIN
-    #define X_MAX_PIN -1
-  #endif // X_HOME_DIR > 0
-#endif // DISABLED(DUAL_X_CARRIAGE)
+// Disabled MIN or MAX endstop if not used
+#if DISABLED(ENABLED_ALL_SIX_ENDSTOP)
 
-#if Y_HOME_DIR > 0    // Home Y to MAX
-  #undef Y_MIN_PIN
-  #define Y_MIN_PIN -1
-#elif Y_HOME_DIR < 0  // Home Y to MIN
-  #undef Y_MAX_PIN
-  #define Y_MAX_PIN -1
-#endif // Y_HOME_DIR > 0
+  #if DISABLED(DUAL_X_CARRIAGE)
+    #if X_HOME_DIR > 0    // Home X to MAX
+      #undef X_MIN_PIN
+      #define X_MIN_PIN -1
+    #elif X_HOME_DIR < 0  // Home X to MIN
+      #undef X_MAX_PIN
+      #define X_MAX_PIN -1
+    #endif // X_HOME_DIR > 0
+  #endif // DISABLED(DUAL_X_CARRIAGE)
 
-#if Z_HOME_DIR > 0    // Home Z to MAX
-  #undef Z_MIN_PIN
-  #define Z_MIN_PIN -1
-#elif Z_HOME_DIR < 0  // Home Z to MIN
-  #undef Z_MAX_PIN
-  #define Z_MAX_PIN -1
-#endif // Z_HOME_DIR > 0
+  #if Y_HOME_DIR > 0    // Home Y to MAX
+    #undef Y_MIN_PIN
+    #define Y_MIN_PIN -1
+  #elif Y_HOME_DIR < 0  // Home Y to MIN
+    #undef Y_MAX_PIN
+    #define Y_MAX_PIN -1
+  #endif // Y_HOME_DIR > 0
+
+  #if Z_HOME_DIR > 0    // Home Z to MAX
+    #undef Z_MIN_PIN
+    #define Z_MIN_PIN -1
+  #elif Z_HOME_DIR < 0  // Home Z to MIN
+    #undef Z_MAX_PIN
+    #define Z_MAX_PIN -1
+  #endif // Z_HOME_DIR > 0
+
+#endif
 
 /****************************************************************************************/
 
@@ -418,4 +344,4 @@
                         FLOWMETER_PIN \
                        }
 
-#endif //__PINS_H
+#endif /* _PINS_H_ */

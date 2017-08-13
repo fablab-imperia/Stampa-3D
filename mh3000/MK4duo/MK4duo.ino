@@ -1,5 +1,5 @@
 /**
- * MK4duo 3D Printer Firmware and Laser
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
@@ -55,17 +55,16 @@
  *          Y = Probe Y position (default=current probe position)
  *          S = <bool> Stows the probe if 1 (default=1)
  *          Z = <bool> with a non-zero value will apply the result to current delta_height (ONLY DELTA)
- *          P = <bool> with a non-zero value will apply the result to current probe.z_offset (ONLY DELTA)
+ *          P = <bool> with a non-zero value will apply the result to current probe_offset_Z (ONLY DELTA)
  * G31  - Dock sled (Z_PROBE_SLED only)
  * G32  - Undock sled (Z_PROBE_SLED only)
  * G33  - Delta geometry Autocalibration (Requires DELTA_AUTO_CALIBRATION_?)
  *          F<nfactor> p<npoint> Q<debugging> (Requires DELTA_AUTO_CALIBRATION_1)
  *          P<points> <A> <O> <T> V<verbose> (Requires DELTA_AUTO_CALIBRATION_2)
- *          A<precision> E<precision> R<precision> I D T S (Requires DELTA_AUTO_CALIBRATION_3)
  * G38  - Probe target - similar to G28 except it uses the Z_MIN endstop for all three axes
  * G60  - Save current position coordinates (all axes, for active extruder).
  *          S<SLOT> - specifies memory slot # (0-based) to save into (default 0).
- * G61  - Apply/restore saved coordinates to the active extruder.
+ * G61  - Apply/restore saved coordinates.
  *          X Y Z E - Value to add at stored coordinates.
  *          F<speed> - Set Feedrate.
  *          S<SLOT> - specifies memory slot # (0-based) to restore from (default 0).
@@ -125,6 +124,7 @@
  * M105 - Read current temp
  * M106 - S<speed> P<fan> Fan on
  * M107 - P<fan> Fan off
+ * M108 - Break out of heating loops (M109, M190, M303). With no controller, breaks out of M0/M1. (Requires EMERGENCY_PARSER)
  * M109 - Sxxx Wait for hotend current temp to reach target temp. Waits only when heating
  *        Rxxx Wait for hotend current temp to reach target temp. Waits when heating and cooling
  *        IF AUTOTEMP is enabled, S<mintemp> B<maxtemp> F<factor>. Exit autotemp by any M109 without F
@@ -214,6 +214,7 @@
  * M501 - Read parameters from EEPROM (if you need reset them after you changed them temporarily).
  * M502 - Revert to the default "factory settings". You still need to store them in EEPROM afterwards if you want to.
  * M503 - Print the current settings (from memory not from EEPROM). Use S0 to leave off headings.
+ * M512 - Print Extruder Encoder status Pin. (Requires Extruder Encoder)
  * M522 - Read or Write on card. M522 T<extruders> R<read> or W<write> L<list>
  * M530 - Enables explicit printing mode (S1) or disables it (S0). L can set layer count
  * M531 - filename - Define filename being printed
@@ -221,9 +222,11 @@
  * M540 - Use S[0|1] to enable or disable the stop print on endstop hit (requires ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
  * M595 - Set hotend AD595 O<offset> and S<gain>
  * M600 - Pause for filament change X[pos] Y[pos] Z[relative lift] E[initial retract] L[later retract distance for removal]
+ * M604 - Set data Extruder Encoder S[Error steps] (requires EXTRUDER ENCODER)
  * M605 - Set dual x-carriage movement mode: S<mode> [ X<duplication x-offset> R<duplication temp offset> ]
  * M649 - Set laser options. S<intensity> L<duration> P<ppm> B<set mode> R<raster mm per pulse> F<feedrate>
- * M666 - Set z probe offset or Endstop and delta geometry adjustment
+ * M666 - Delta geometry adjustment
+ * M851 - Set X Y Z Probe Offset in current units. (Requires Probe)
  * M900 - Get and/or Set advance K factor and WH/D ratio. (Requires LIN_ADVANCE)
  * M906 - Set motor currents XYZ T0-4 E (Requires ALLIGATOR)
  *        Set or get motor current in milliamps using axis codes X, Y, Z, E. Report values if no axis codes given. (Requires HAVE_TMC2130)
@@ -255,3 +258,11 @@
  */
 
 #include "base.h"
+
+void setup() {
+  printer.setup();
+}
+
+void loop() {
+  commands.loop();
+}

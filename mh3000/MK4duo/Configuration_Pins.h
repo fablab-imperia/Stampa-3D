@@ -169,7 +169,7 @@
 #define COOLER_PIN           -1
 
 // TEMP pin
-#define TEMP_0_PIN           ORIG_TEMP_0_PIN
+#define TEMP_0_PIN           4
 #define TEMP_1_PIN           ORIG_TEMP_1_PIN
 #define TEMP_2_PIN           ORIG_TEMP_2_PIN
 #define TEMP_3_PIN           ORIG_TEMP_3_PIN
@@ -187,7 +187,7 @@
 #define PS_ON_PIN            ORIG_PS_ON_PIN
 
 // BEEPER pin
-#define BEEPER_PIN           ORIG_BEEPER_PIN
+#define BEEPER_PIN           33
 
 //============================================================================
 
@@ -203,7 +203,7 @@
 #endif
 
 #if ENABLED(LASER)
-  #define LASER_PWR_PIN                   -1
+  #define LASER_PWR_PIN                   ORIG_LASER_PWR_PIN
   #define LASER_PWM_PIN                   ORIG_LASER_PWM_PIN
   #if ENABLED(LASER_PERIPHERALS)
     #define LASER_PERIPHERALS_PIN         -1
@@ -272,6 +272,10 @@
   #define RGB_LED_G_PIN -1
   #define RGB_LED_B_PIN -1
   #define RGB_LED_W_PIN -1
+#endif
+
+#if HAS_NEOPIXEL
+  #define NEOPIXEL_PIN -1
 #endif
 
 //============================================================================

@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -471,7 +471,7 @@
   #define HOMING_BUMP_DIVISOR {XYZ_BUMP_DIVISOR, XYZ_BUMP_DIVISOR, XYZ_BUMP_DIVISOR}
 
   // Effective horizontal distance bridged by diagonal push rods.
-  #define DEFAULT_DELTA_RADIUS (DELTA_SMOOTH_ROD_OFFSET - DELTA_EFFECTOR_OFFSET - DELTA_CARRIAGE_OFFSET)
+  #define DELTA_RADIUS (DELTA_SMOOTH_ROD_OFFSET - DELTA_EFFECTOR_OFFSET - DELTA_CARRIAGE_OFFSET)
 
   #if ENABLED(AUTO_BED_LEVELING_FEATURE)
     #define AUTO_BED_LEVELING_BILINEAR
@@ -486,17 +486,25 @@
   #define Z_PROBE_SPEED_SLOW  Z_PROBE_SPEED
 
   // Set the rectangle in which to probe
-  #define DELTA_PROBEABLE_RADIUS    (DELTA_PRINTABLE_RADIUS - 5)
-  #define LEFT_PROBE_BED_POSITION   -(DELTA_PROBEABLE_RADIUS)
-  #define RIGHT_PROBE_BED_POSITION  (DELTA_PROBEABLE_RADIUS)
-  #define FRONT_PROBE_BED_POSITION  -(DELTA_PROBEABLE_RADIUS)
-  #define BACK_PROBE_BED_POSITION   (DELTA_PROBEABLE_RADIUS)
+  #define DELTA_PROBEABLE_RADIUS     (DELTA_PRINTABLE_RADIUS - max(abs(X_PROBE_OFFSET_FROM_NOZZLE), abs(Y_PROBE_OFFSET_FROM_NOZZLE)))
+  #define LEFT_PROBE_BED_POSITION   -(mechanics.delta_probe_radius)
+  #define RIGHT_PROBE_BED_POSITION   (mechanics.delta_probe_radius)
+  #define FRONT_PROBE_BED_POSITION  -(mechanics.delta_probe_radius)
+  #define BACK_PROBE_BED_POSITION    (mechanics.delta_probe_radius)
+
+  #define X_MIN_POS -(mechanics.delta_print_radius)
+  #define X_MAX_POS  (mechanics.delta_print_radius)
+  #define Y_MIN_POS -(mechanics.delta_print_radius)
+  #define Y_MAX_POS  (mechanics.delta_print_radius)
+  #define Z_MAX_POS  (mechanics.delta_height)
+  #define Z_MIN_POS 0
+  #define E_MIN_POS 0
 
   #if ENABLED(WORKSPACE_OFFSETS)
     #undef WORKSPACE_OFFSETS
   #endif
 
-  #define HAS_DELTA_AUTO_CALIBRATION  (ENABLED(DELTA_AUTO_CALIBRATION_1) || ENABLED(DELTA_AUTO_CALIBRATION_2) || ENABLED(DELTA_AUTO_CALIBRATION_3))
+  #define HAS_DELTA_AUTO_CALIBRATION  (ENABLED(DELTA_AUTO_CALIBRATION_1) || ENABLED(DELTA_AUTO_CALIBRATION_2))
 
 #endif // MECH(DELTA)
 
@@ -531,23 +539,6 @@
  */
 #if ENABLED(GRID_MAX_POINTS_X) && ENABLED(GRID_MAX_POINTS_Y)
   #define GRID_MAX_POINTS ((GRID_MAX_POINTS_X) * (GRID_MAX_POINTS_Y))
-#endif
-
-/**
- * Auto Bed Leveling
- */
-#if IS_KINEMATIC
-  // Check for this in the code instead
-  #define MIN_PROBE_X X_MIN_POS
-  #define MAX_PROBE_X X_MAX_POS
-  #define MIN_PROBE_Y Y_MIN_POS
-  #define MAX_PROBE_Y Y_MAX_POS
-#else
-  // Boundaries for probing based on set limits
-  #define MIN_PROBE_X (max(X_MIN_POS, X_MIN_POS + X_PROBE_OFFSET_FROM_NOZZLE))
-  #define MAX_PROBE_X (min(X_MAX_POS, X_MAX_POS + X_PROBE_OFFSET_FROM_NOZZLE))
-  #define MIN_PROBE_Y (max(Y_MIN_POS, Y_MIN_POS + Y_PROBE_OFFSET_FROM_NOZZLE))
-  #define MAX_PROBE_Y (min(Y_MAX_POS, Y_MAX_POS + Y_PROBE_OFFSET_FROM_NOZZLE))
 #endif
 
 /**
@@ -627,7 +618,7 @@
  */
 #if ENABLED(ADVANCE)
   #define EXTRUSION_AREA (0.25 * (D_FILAMENT) * (D_FILAMENT) * M_PI)
-  #define STEPS_PER_CUBIC_MM_E (axis_steps_per_mm[E_AXIS + active_extruder] / (EXTRUSION_AREA))
+  #define STEPS_PER_CUBIC_MM_E (axis_steps_per_mm[E_AXIS + tools.active_extruder] / (EXTRUSION_AREA))
 #endif
 
 /**
@@ -764,8 +755,10 @@
  */
 #if ENABLED(INVERTED_HEATER_PINS)
   #define WRITE_HEATER(pin, value) WRITE(pin, !value)
+  #define HEATER_ON false
 #else
   #define WRITE_HEATER(pin, value) WRITE(pin, value)
+  #define HEATER_ON true
 #endif
 #if HOTENDS > 0
   #define WRITE_HEATER_0P(v) WRITE_HEATER(HEATER_0_PIN, v)
@@ -787,22 +780,28 @@
 #if HAS_HEATER_BED
   #if ENABLED(INVERTED_BED_PIN)
     #define WRITE_HEATER_BED(v) WRITE(HEATER_BED_PIN,!v)
+    #define BED_ON false
   #else
     #define WRITE_HEATER_BED(v) WRITE(HEATER_BED_PIN,v)
+    #define BED_ON true
   #endif
 #endif
 #if HAS_HEATER_CHAMBER
   #if ENABLED(INVERTED_CHAMBER_PIN)
     #define WRITE_HEATER_CHAMBER(v) WRITE(HEATER_CHAMBER_PIN,!v)
+    #define CHAMBER_ON false
   #else
     #define WRITE_HEATER_CHAMBER(v) WRITE(HEATER_CHAMBER_PIN,v)
+    #define CHAMBER_ON true
   #endif
 #endif
 #if HAS_COOLER
   #if ENABLED(INVERTED_COOLER_PIN)
     #define WRITE_COOLER(v) WRITE(COOLER_PIN,!v)
+    #define COOLER_ON false
   #else
     #define WRITE_COOLER(v) WRITE(COOLER_PIN,v)
+    #define COOLER_ON true
   #endif
 #endif
 
@@ -823,8 +822,10 @@
 
 #if ENABLED(INVERTED_FAN_PINS)
   #define _WRITE_FAN(pin, v) WRITE(pin, !v)
+  #define FAN_ON false
 #else
   #define _WRITE_FAN(pin, v) WRITE(pin, v)
+  #define FAN_ON true
 #endif
 
 #if HAS_FAN0
@@ -841,6 +842,15 @@
   #define WRITE_FAN3(v) _WRITE_FAN(FAN3_PIN, v)
 #endif
 #define WRITE_FAN_N(n, v) WRITE_FAN##n(v)
+
+/**
+ * Auto Fans pin
+ */
+#if ENABLED(INVERTED_AUTO_FAN_PINS)
+  #define WRITE_AUTO_FAN(pin, v) do{ digitalWrite(pin, v ? 0 : 1); HAL::analogWrite(pin, 255 - v); }while(0)
+#else
+  #define WRITE_AUTO_FAN(pin, v) do{ digitalWrite(pin, v); HAL::analogWrite(pin, v); }while(0)
+#endif
 
 /**
  * Extruder Encoder
@@ -898,7 +908,7 @@
     #define LCD_FEEDBACK_FREQUENCY_HZ 5000
   #endif
   #if DISABLED(LCD_FEEDBACK_FREQUENCY_DURATION_MS)
-    #define LCD_FEEDBACK_FREQUENCY_DURATION_MS 2
+    #define LCD_FEEDBACK_FREQUENCY_DURATION_MS 10
   #endif
 #endif
 

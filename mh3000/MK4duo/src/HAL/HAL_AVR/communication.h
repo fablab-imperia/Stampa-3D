@@ -3,7 +3,7 @@
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,8 +59,8 @@ FORCE_INLINE void serial_spaces(uint8_t count) {
 #define SERIAL_MSG(msg)                     SERIAL_PGM(msg)
 #define SERIAL_TXT(txt)                     (serial_print(txt))
 #define SERIAL_VAL(val, ...)                (serial_print(val, ## __VA_ARGS__))
-#define SERIAL_CHR(c)                       (MKSERIAL.write(c))
-#define SERIAL_EOL()                        (MKSERIAL.write('\n'))
+#define SERIAL_CHR(c)                       ((void)MKSERIAL.write(c))
+#define SERIAL_EOL()                        ((void)MKSERIAL.write('\n'))
 
 #define SERIAL_SP(C)                        serial_spaces(C)
 

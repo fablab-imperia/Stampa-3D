@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,6 +57,12 @@
             Bed_level::z_values_virt[ABL_GRID_POINTS_VIRT_X][ABL_GRID_POINTS_VIRT_Y];
       int   Bed_level::bilinear_grid_spacing_virt[2] = { 0 };
     #endif
+  #endif
+
+  #if ENABLED(PROBE_MANUALLY)
+    bool Bed_level::g29_in_progress = false;
+  #else
+    const bool Bed_level::g29_in_progress = false;
   #endif
 
   /**
@@ -572,7 +578,7 @@
 
     void Bed_level::mbl_mesh_report() {
       SERIAL_EM("Num X,Y: " STRINGIFY(GRID_MAX_POINTS_X) "," STRINGIFY(GRID_MAX_POINTS_Y));
-      SERIAL_EMV("Z offset: ", mbl.z_offset, 5);
+      SERIAL_EMV("Z offset: ", mbl.zprobe_zoffset, 5);
       SERIAL_EM("Measured points:");
       print_2d_array(GRID_MAX_POINTS_X, GRID_MAX_POINTS_Y, 5,
         [](const uint8_t ix, const uint8_t iy) { return mbl.z_values[ix][iy]; }
@@ -581,7 +587,7 @@
 
     void Bed_level::mesh_probing_done() {
       mbl.set_has_mesh(true);
-      home_all_axes();
+      mechanics.Home(true);
       set_bed_leveling_enabled(true);
       #if ENABLED(MESH_G28_REST_ORIGIN)
         mechanics.current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS);
@@ -660,5 +666,31 @@
     }
 
   #endif // ENABLED(AUTO_BED_LEVELING_BILINEAR) || ENABLED(MESH_BED_LEVELING)
+
+  #if ENABLED(DEBUG_LEVELING_FEATURE)
+
+    void Bed_level::print_xyz(const char* prefix, const char* suffix, const float x, const float y, const float z) {
+      SERIAL_PS(prefix);
+      SERIAL_CHR('(');
+      SERIAL_VAL(x);
+      SERIAL_MV(", ", y);
+      SERIAL_MV(", ", z);
+      SERIAL_CHR(")");
+
+      if (suffix) SERIAL_PS(suffix);
+      else SERIAL_EOL();
+    }
+
+    void Bed_level::print_xyz(const char* prefix, const char* suffix, const float xyz[]) {
+      print_xyz(prefix, suffix, xyz[X_AXIS], xyz[Y_AXIS], xyz[Z_AXIS]);
+    }
+
+    #if ABL_PLANAR
+      void Bed_level::print_xyz(const char* prefix, const char* suffix, const vector_3 &xyz) {
+        print_xyz(prefix, suffix, xyz.x, xyz.y, xyz.z);
+      }
+    #endif
+
+  #endif // ENABLED(DEBUG_LEVELING_FEATURE)
 
 #endif // HAS_LEVELING

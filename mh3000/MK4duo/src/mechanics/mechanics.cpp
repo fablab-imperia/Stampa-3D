@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ void Mechanics::_set_position_mm(const float &a, const float &b, const float &c,
 void Mechanics::set_position_mm(const AxisEnum axis, const float &v) {
 
   #if EXTRUDERS > 1
-    const uint8_t axis_index = axis + (axis == E_AXIS ? active_extruder : 0);
+    const uint8_t axis_index = axis + (axis == E_AXIS ? tools.active_extruder : 0);
   #else
     const uint8_t axis_index = axis;
   #endif
@@ -129,7 +129,7 @@ void Mechanics::set_current_from_steppers_for_axis(const AxisEnum axis) {
  * (or from wherever it has been told it is located).
  */
 void Mechanics::line_to_current_position() {
-  planner.buffer_line(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS], feedrate_mm_s, active_extruder);
+  planner.buffer_line(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS], feedrate_mm_s, tools.active_extruder);
 }
 
 /**
@@ -138,7 +138,7 @@ void Mechanics::line_to_current_position() {
  * used by G0/G1/G2/G3/G5 and many other functions to set a destination.
  */
 void Mechanics::line_to_destination(float fr_mm_s) {
-  planner.buffer_line(destination[A_AXIS], destination[B_AXIS], destination[C_AXIS], destination[E_AXIS], fr_mm_s, active_extruder);
+  planner.buffer_line(destination[A_AXIS], destination[B_AXIS], destination[C_AXIS], destination[E_AXIS], fr_mm_s, tools.active_extruder);
 }
 
 /**
@@ -149,7 +149,7 @@ void Mechanics::do_blocking_move_to(const float &lx, const float &ly, const floa
   const float old_feedrate_mm_s = feedrate_mm_s;
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
-    if (DEBUGGING(LEVELING)) print_xyz(PSTR(">>> do_blocking_move_to"), NULL, lx, ly, lz);
+    if (DEBUGGING(LEVELING)) bedlevel.print_xyz(PSTR(">>> do_blocking_move_to"), NULL, lx, ly, lz);
   #endif
 
   // If Z needs to raise, do it before moving XY
@@ -197,8 +197,9 @@ void Mechanics::manual_goto_xy(const float &x, const float &y) {
   const float old_feedrate_mm_s = feedrate_mm_s;
 
   #if MANUAL_PROBE_HEIGHT > 0
+    const float prev_z = current_position[Z_AXIS];
     feedrate_mm_s = homing_feedrate_mm_s[Z_AXIS];
-    current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS) + MANUAL_PROBE_HEIGHT;
+    current_position[Z_AXIS] = LOGICAL_Z_POSITION(MANUAL_PROBE_HEIGHT);
     line_to_current_position();
   #endif
 
@@ -209,7 +210,7 @@ void Mechanics::manual_goto_xy(const float &x, const float &y) {
 
   #if MANUAL_PROBE_HEIGHT > 0
     feedrate_mm_s = homing_feedrate_mm_s[Z_AXIS];
-    current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS); // just slightly over the bed
+    current_position[Z_AXIS] = prev_z; // move back to the previous Z.
     line_to_current_position();
   #endif
 
@@ -284,7 +285,7 @@ void Mechanics::do_homing_move(const AxisEnum axis, const float distance, const 
 
   set_position_mm(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS]);
   current_position[axis] = distance;
-  planner.buffer_line(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS], fr_mm_s ? fr_mm_s : homing_feedrate_mm_s[axis], active_extruder);
+  planner.buffer_line(current_position[A_AXIS], current_position[B_AXIS], current_position[C_AXIS], current_position[E_AXIS], fr_mm_s ? fr_mm_s : homing_feedrate_mm_s[axis], tools.active_extruder);
 
   stepper.synchronize();
 
@@ -312,6 +313,62 @@ void Mechanics::report_current_position() {
   SERIAL_MV(" E:", current_position[E_AXIS]);
 
   stepper.report_positions();
+}
+void Mechanics::report_current_position_detail() {
+
+  stepper.synchronize();
+
+  SERIAL_MSG("\nLogical:");
+  report_xyze(current_position);
+
+  SERIAL_MSG("Raw:    ");
+  const float raw[XYZ] = { RAW_X_POSITION(current_position[X_AXIS]), RAW_Y_POSITION(current_position[Y_AXIS]), RAW_Z_POSITION(current_position[Z_AXIS]) };
+  report_xyz(raw);
+
+  float leveled[XYZ] = { current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS] };
+
+  #if HAS_LEVELING
+
+    SERIAL_MSG("Leveled:");
+    bedlevel.apply_leveling(leveled);
+    report_xyz(leveled);
+
+    SERIAL_MSG("UnLevel:");
+    float unleveled[XYZ] = { leveled[X_AXIS], leveled[Y_AXIS], leveled[Z_AXIS] };
+    bedlevel.unapply_leveling(unleveled);
+    report_xyz(unleveled);
+
+  #endif
+
+  SERIAL_MSG("Stepper:");
+  const long step_count[XYZE] = { stepper.position(X_AXIS), stepper.position(Y_AXIS), stepper.position(Z_AXIS), stepper.position(E_AXIS) };
+  report_xyze((float*)step_count, 4, 0);
+
+  SERIAL_MSG("FromStp:");
+  get_cartesian_from_steppers();  // writes cartesian_position[XYZ] (with forward kinematics)
+  const float from_steppers[XYZE] = { cartesian_position[X_AXIS], cartesian_position[Y_AXIS], cartesian_position[Z_AXIS], get_axis_position_mm(E_AXIS) };
+  report_xyze(from_steppers);
+
+  const float diff[XYZE] = {
+    from_steppers[X_AXIS] - leveled[X_AXIS],
+    from_steppers[Y_AXIS] - leveled[Y_AXIS],
+    from_steppers[Z_AXIS] - leveled[Z_AXIS],
+    from_steppers[E_AXIS] - current_position[E_AXIS]
+  };
+
+  SERIAL_MSG("Differ: ");
+  report_xyze(diff);
+
+}
+
+void Mechanics::report_xyze(const float pos[XYZE], const uint8_t n/*=4*/, const uint8_t precision/*=3*/) {
+  for (uint8_t i = 0; i < n; i++) {
+    SERIAL_CHR(' ');
+    SERIAL_CHR(axis_codes[i]);
+    SERIAL_CHR(':');
+    SERIAL_VAL(pos[i], precision);
+  }
+  SERIAL_EOL();
 }
 
 float Mechanics::get_homing_bump_feedrate(const AxisEnum axis) {
@@ -354,35 +411,279 @@ bool Mechanics::position_is_reachable_by_probe_raw_xy(const float &rx, const flo
   return WITHIN(rx, MIN_PROBE_X - 0.001, MAX_PROBE_X + 0.001)
       && WITHIN(ry, MIN_PROBE_Y - 0.001, MAX_PROBE_Y + 0.001);
 }
-bool Mechanics::position_is_reachable_by_probe_xy(const float &lx, const float &ly) {
-  return position_is_reachable_by_probe_raw_xy(RAW_X_POSITION(lx), RAW_Y_POSITION(ly));
-}
 bool Mechanics::position_is_reachable_xy(const float &lx, const float &ly) {
   return position_is_reachable_raw_xy(RAW_X_POSITION(lx), RAW_Y_POSITION(ly));
 }
+bool Mechanics::position_is_reachable_by_probe_xy(const float &lx, const float &ly) {
+  return position_is_reachable_by_probe_raw_xy(RAW_X_POSITION(lx), RAW_Y_POSITION(ly));
+}
+
+#if ENABLED(ARC_SUPPORT)
+
+  #if N_ARC_CORRECTION < 1
+    #undef N_ARC_CORRECTION
+    #define N_ARC_CORRECTION 1
+  #endif
+
+  /**
+   * Plan an arc in 2 dimensions
+   *
+   * The arc is approximated by generating many small linear segments.
+   * The length of each segment is configured in MM_PER_ARC_SEGMENT (Default 1mm)
+   * Arcs should only be made relatively large (over 5mm), as larger arcs with
+   * larger segments will tend to be more efficient. Your slicer should have
+   * options for G2/G3 arc generation. In future these options may be GCode tunable.
+   */
+  void Mechanics::plan_arc(
+    float logical[XYZE],  // Destination position
+    float *offset,        // Center of rotation relative to current_position
+    uint8_t clockwise     // Clockwise?
+  ) {
+
+    #if ENABLED(CNC_WORKSPACE_PLANES)
+      AxisEnum p_axis, q_axis, l_axis;
+      switch (workspace_plane) {
+        case PLANE_XY: p_axis = X_AXIS; q_axis = Y_AXIS; l_axis = Z_AXIS; break;
+        case PLANE_ZX: p_axis = Z_AXIS; q_axis = X_AXIS; l_axis = Y_AXIS; break;
+        case PLANE_YZ: p_axis = Y_AXIS; q_axis = Z_AXIS; l_axis = X_AXIS; break;
+      }
+    #else
+      constexpr AxisEnum p_axis = X_AXIS, q_axis = Y_AXIS, l_axis = Z_AXIS;
+    #endif
+
+    // Radius vector from center to current location
+    float r_P = -offset[0], r_Q = -offset[1];
+
+    const float radius = HYPOT(r_P, r_Q),
+                center_P = current_position[p_axis] - r_P,
+                center_Q = current_position[q_axis] - r_Q,
+                rt_X = logical[p_axis] - center_P,
+                rt_Y = logical[q_axis] - center_Q,
+                linear_travel = logical[l_axis] - current_position[l_axis],
+                extruder_travel = logical[E_AXIS] - current_position[E_AXIS];
+
+    // CCW angle of rotation between position and target from the circle center. Only one atan2() trig computation required.
+    float angular_travel = ATAN2(r_P * rt_Y - r_Q * rt_X, r_P * rt_X + r_Q * rt_Y);
+    if (angular_travel < 0) angular_travel += RADIANS(360);
+    if (clockwise) angular_travel -= RADIANS(360);
+
+    // Make a circle if the angular rotation is 0
+    if (angular_travel == 0 && current_position[p_axis] == logical[p_axis] && current_position[q_axis] == logical[q_axis])
+      angular_travel += RADIANS(360);
+
+    float mm_of_travel = HYPOT(angular_travel * radius, FABS(linear_travel));
+    if (mm_of_travel < 0.001) return;
+
+    uint16_t segments = FLOOR(mm_of_travel / (MM_PER_ARC_SEGMENT));
+    if (segments == 0) segments = 1;
+
+    /**
+     * Vector rotation by transformation matrix: r is the original vector, r_T is the rotated vector,
+     * and phi is the angle of rotation. Based on the solution approach by Jens Geisler.
+     *     r_T = [cos(phi) -sin(phi);
+     *            sin(phi)  cos(phi] * r ;
+     *
+     * For arc generation, the center of the circle is the axis of rotation and the radius vector is
+     * defined from the circle center to the initial position. Each line segment is formed by successive
+     * vector rotations. This requires only two cos() and sin() computations to form the rotation
+     * matrix for the duration of the entire arc. Error may accumulate from numerical round-off, since
+     * all double numbers are single precision on the Arduino. (True double precision will not have
+     * round off issues for CNC applications.) Single precision error can accumulate to be greater than
+     * tool precision in some cases. Therefore, arc path correction is implemented.
+     *
+     * Small angle approximation may be used to reduce computation overhead further. This approximation
+     * holds for everything, but very small circles and large MM_PER_ARC_SEGMENT values. In other words,
+     * theta_per_segment would need to be greater than 0.1 rad and N_ARC_CORRECTION would need to be large
+     * to cause an appreciable drift error. N_ARC_CORRECTION~=25 is more than small enough to correct for
+     * numerical drift error. N_ARC_CORRECTION may be on the order a hundred(s) before error becomes an
+     * issue for CNC machines with the single precision Arduino calculations.
+     *
+     * This approximation also allows plan_arc to immediately insert a line segment into the planner
+     * without the initial overhead of computing cos() or sin(). By the time the arc needs to be applied
+     * a correction, the planner should have caught up to the lag caused by the initial plan_arc overhead.
+     * This is important when there are successive arc motions.
+     */
+    // Vector rotation matrix values
+    float arc_target[XYZE];
+    const float theta_per_segment = angular_travel / segments,
+                linear_per_segment = linear_travel / segments,
+                extruder_per_segment = extruder_travel / segments,
+                sin_T = theta_per_segment,
+                cos_T = 1 - 0.5 * sq(theta_per_segment); // Small angle approximation
+
+    // Initialize the linear axis
+    arc_target[l_axis] = current_position[l_axis];
+
+    // Initialize the extruder axis
+    arc_target[E_AXIS] = current_position[E_AXIS];
+
+    const float fr_mm_s = MMS_SCALED(feedrate_mm_s);
+
+    millis_t next_idle_ms = millis() + 200UL;
+
+    #if N_ARC_CORRECTION > 1
+      int8_t count = N_ARC_CORRECTION;
+    #endif
+
+    for (uint16_t i = 1; i < segments; i++) { // Iterate (segments-1) times
+
+      thermalManager.manage_temp_controller();
+      if (ELAPSED(millis(), next_idle_ms)) {
+        next_idle_ms = millis() + 200UL;
+        printer.idle();
+      }
+
+      #if N_ARC_CORRECTION > 1
+        if (--count) {
+          // Apply vector rotation matrix to previous r_P / 1
+          const float r_new_Y = r_P * sin_T + r_Q * cos_T;
+          r_P = r_P * cos_T - r_Q * sin_T;
+          r_Q = r_new_Y;
+        }
+        else
+      #endif
+      {
+        #if N_ARC_CORRECTION > 1
+          count = N_ARC_CORRECTION;
+        #endif
+
+        // Arc correction to radius vector. Computed only every N_ARC_CORRECTION increments.
+        // Compute exact location by applying transformation matrix from initial radius vector(=-offset).
+        // To reduce stuttering, the sin and cos could be computed at different times.
+        // For now, compute both at the same time.
+        const float cos_Ti = cos(i * theta_per_segment),
+                    sin_Ti = sin(i * theta_per_segment);
+        r_P = -offset[0] * cos_Ti + offset[1] * sin_Ti;
+        r_Q = -offset[0] * sin_Ti - offset[1] * cos_Ti;
+      }
+
+      // Update arc_target location
+      arc_target[p_axis] = center_P + r_P;
+      arc_target[q_axis] = center_Q + r_Q;
+      arc_target[l_axis] += linear_per_segment;
+      arc_target[E_AXIS] += extruder_per_segment;
+
+      endstops.clamp_to_software_endstops(arc_target);
+
+      planner.buffer_line_kinematic(arc_target, fr_mm_s, tools.active_extruder);
+    }
+
+    // Ensure last segment arrives at target location.
+    planner.buffer_line_kinematic(logical, fr_mm_s, tools.active_extruder);
+
+    // As far as the parser is concerned, the position is now == target. In reality the
+    // motion control system might still be processing the action and the real tool position
+    // in any intermediate location.
+    set_current_to_destination();
+  }
+
+#endif
 
 #if ENABLED(DEBUG_LEVELING_FEATURE)
 
-  void Mechanics::print_xyz(const char* prefix, const char* suffix, const float x, const float y, const float z) {
-    SERIAL_PS(prefix);
-    SERIAL_CHR('(');
-    SERIAL_VAL(x);
-    SERIAL_MV(", ", y);
-    SERIAL_MV(", ", z);
-    SERIAL_CHR(")");
+  void Mechanics::log_machine_info() {
+    SERIAL_MSG("Machine Type: ");
+    SERIAL_EM(MACHINE_TYPE);
 
-    if (suffix) SERIAL_PS(suffix);
-    else SERIAL_EOL();
+    SERIAL_MSG("Probe: ");
+    #if ENABLED(PROBE_MANUALLY)
+      SERIAL_EM("PROBE_MANUALLY");
+    #elif ENABLED(Z_PROBE_FIX_MOUNTED)
+      SERIAL_EM("Z_PROBE_FIX_MOUNTED");
+    #elif ENABLED(BLTOUCH)
+      SERIAL_EM("BLTOUCH");
+    #elif ENABLED(Z_PROBE_SLED)
+      SERIAL_EM("Z_PROBE_SLED");
+    #elif ENABLED(Z_PROBE_ALLEN_KEY)
+      SERIAL_EM("ALLEN KEY");
+    #elif HAS_Z_SERVO_PROBE
+      SERIAL_EM("SERVO PROBE");
+    #else
+      SERIAL_EM("NONE");
+    #endif
+
+    #if HAS_BED_PROBE
+      SERIAL_SM(ECHO, MSG_PROBE_OFFSET);
+      SERIAL_MV(MSG_PROBE_OFFSET " X:", probe.offset[X_AXIS]);
+      SERIAL_MV(" Y:", probe.offset[Y_AXIS]);
+      SERIAL_MV(" Z:", probe.offset[Z_AXIS]);
+
+      if (probe.offset[X_AXIS] > 0)
+        SERIAL_MSG(" (Right");
+      else if (probe.offset[X_AXIS] < 0)
+        SERIAL_MSG(" (Left");
+      else if (probe.offset[Y_AXIS] != 0)
+        SERIAL_MSG(" (Middle");
+      else
+        SERIAL_MSG(" (Aligned With");
+
+      if (probe.offset[Y_AXIS] > 0)
+        SERIAL_MSG("-Back");
+      else if (probe.offset[Y_AXIS] < 0)
+        SERIAL_MSG("-Front");
+      else if (probe.offset[X_AXIS] != 0)
+        SERIAL_MSG("-Center");
+
+      if (probe.offset[Z_AXIS] < 0)
+        SERIAL_MSG(" & Below");
+      else if (probe.offset[Z_AXIS] > 0)
+        SERIAL_MSG(" & Above");
+      else
+        SERIAL_MSG(" & Same Z as");
+      SERIAL_EM(" Nozzle)");
+    #endif
+
+    #if HAS_ABL
+      SERIAL_MSG("Auto Bed Leveling: ");
+      #if ENABLED(AUTO_BED_LEVELING_LINEAR)
+        SERIAL_MSG("LINEAR");
+      #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
+        SERIAL_MSG("BILINEAR");
+      #elif ENABLED(AUTO_BED_LEVELING_3POINT)
+        SERIAL_MSG("3POINT");
+      #endif
+      if (bedlevel.leveling_is_active()) {
+        SERIAL_EM(" (enabled)");
+        #if ABL_PLANAR
+          const float diff[XYZ] = {
+            get_axis_position_mm(X_AXIS) - current_position[X_AXIS],
+            get_axis_position_mm(Y_AXIS) - current_position[Y_AXIS],
+            get_axis_position_mm(Z_AXIS) - current_position[Z_AXIS]
+          };
+          SERIAL_MSG("ABL Adjustment X");
+          if (diff[X_AXIS] > 0) SERIAL_CHR('+');
+          SERIAL_VAL(diff[X_AXIS]);
+          SERIAL_MSG(" Y");
+          if (diff[Y_AXIS] > 0) SERIAL_CHR('+');
+          SERIAL_VAL(diff[Y_AXIS]);
+          SERIAL_MSG(" Z");
+          if (diff[Z_AXIS] > 0) SERIAL_CHR('+');
+          SERIAL_VAL(diff[Z_AXIS]);
+        #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
+          SERIAL_MV("ABL Adjustment Z", bedlevel.bilinear_z_offset(current_position));
+        #endif
+      }
+      else
+        SERIAL_MSG(" (disabled)");
+
+      SERIAL_EOL();
+
+    #elif ENABLED(MESH_BED_LEVELING)
+
+      SERIAL_MSG("Mesh Bed Leveling");
+      if (bedlevel.leveling_is_active()) {
+        float lz = current_position[Z_AXIS];
+        bedlevel.apply_leveling(current_position[X_AXIS], current_position[Y_AXIS], lz);
+        SERIAL_EM(" (enabled)");
+        SERIAL_MV("MBL Adjustment Z", lz);
+      }
+      else
+        SERIAL_MSG(" (disabled)");
+
+      SERIAL_EOL();
+
+    #endif
+
   }
 
-  void Mechanics::print_xyz(const char* prefix, const char* suffix, const float xyz[]) {
-    print_xyz(prefix, suffix, xyz[X_AXIS], xyz[Y_AXIS], xyz[Z_AXIS]);
-  }
-
-  #if ABL_PLANAR
-    void Mechanics::print_xyz(const char* prefix, const char* suffix, const vector_3 &xyz) {
-      print_xyz(prefix, suffix, xyz.x, xyz.y, xyz.z);
-    }
-  #endif
-
-#endif
+#endif // DEBUG_LEVELING_FEATURE

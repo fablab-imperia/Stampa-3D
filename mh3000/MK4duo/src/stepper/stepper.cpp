@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -73,6 +73,8 @@ block_t* Stepper::current_block = NULL;  // A pointer to the block currently bei
 #if ENABLED(Z_TWO_ENDSTOPS)
   bool Stepper::performing_homing = false;
 #endif
+
+millis_t Stepper::stepper_inactive_time  = (DEFAULT_STEPPER_DEACTIVE_TIME) * 1000UL;
 
 // private:
 
@@ -153,11 +155,11 @@ uint8_t Stepper::step_loops, Stepper::step_loops_nominal;
 volatile long Stepper::endstops_trigsteps[XYZ];
 
 #if ENABLED(X_TWO_STEPPER)
-  #define X_APPLY_DIR(v,Q)  { X_DIR_WRITE(v); X2_DIR_WRITE((v) != INVERT_X2_VS_X_DIR); }
+  #define X_APPLY_DIR(v,Q)  { X_DIR_WRITE(v); X2_DIR_WRITE(v != INVERT_X2_VS_X_DIR); }
   #define X_APPLY_STEP(v,Q) { X_STEP_WRITE(v); X2_STEP_WRITE(v); }
 #elif ENABLED(DUAL_X_CARRIAGE)
   #define X_APPLY_DIR(v,ALWAYS) \
-    if (hotend_duplication_enabled || ALWAYS) { \
+    if (mechanics.hotend_duplication_enabled || ALWAYS) { \
       X_DIR_WRITE(v); \
       X2_DIR_WRITE(v); \
     } \
@@ -165,7 +167,7 @@ volatile long Stepper::endstops_trigsteps[XYZ];
       if (TOOL_E_INDEX != 0) X2_DIR_WRITE(v); else X_DIR_WRITE(v); \
     }
   #define X_APPLY_STEP(v,ALWAYS) \
-    if (hotend_duplication_enabled || ALWAYS) { \
+    if (mechanics.hotend_duplication_enabled || ALWAYS) { \
       X_STEP_WRITE(v); \
       X2_STEP_WRITE(v); \
     } \
@@ -178,7 +180,7 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 #endif
 
 #if ENABLED(Y_TWO_STEPPER)
-  #define Y_APPLY_DIR(v,Q)  { Y_DIR_WRITE(v); Y2_DIR_WRITE((v) != INVERT_Y2_VS_Y_DIR); }
+  #define Y_APPLY_DIR(v,Q)  { Y_DIR_WRITE(v); Y2_DIR_WRITE(v != INVERT_Y2_VS_Y_DIR); }
   #define Y_APPLY_STEP(v,Q) { Y_STEP_WRITE(v); Y2_STEP_WRITE(v); }
 #else
   #define Y_APPLY_DIR(v,Q) Y_DIR_WRITE(v)
@@ -237,7 +239,7 @@ volatile long Stepper::endstops_trigsteps[XYZ];
     #define Z_APPLY_STEP(v,Q) do{ Z_STEP_WRITE(v); Z2_STEP_WRITE(v); Z3_STEP_WRITE(v); }while(0)
   #endif
 #elif ENABLED(Z_TWO_STEPPER)
-  #define Z_APPLY_DIR(v,Q) { Z_DIR_WRITE(v); Z2_DIR_WRITE(v); }
+  #define Z_APPLY_DIR(v,Q) { Z_DIR_WRITE(v); Z2_DIR_WRITE(v != INVERT_Z2_VS_Z_DIR); }
   #if ENABLED(Z_TWO_ENDSTOPS)
     #define Z_APPLY_STEP(v,Q) \
     if (performing_homing) { \
@@ -273,19 +275,19 @@ volatile long Stepper::endstops_trigsteps[XYZ];
 #if HAS_EXT_ENCODER
   #define _TEST_EXTRUDER_ENC(x,pin) { \
     const uint8_t sig = READ_ENCODER(pin); \
-    encStepsSinceLastSignal[x] += encLastDir[x]; \
-    if (encLastSignal[x] != sig && abs(encStepsSinceLastSignal[x] - encLastChangeAt[x]) > ENC_MIN_STEPS) { \
-      if (sig) encStepsSinceLastSignal[x] = 0; \
-      encLastSignal[x] = sig; \
-      encLastChangeAt[x] = encStepsSinceLastSignal[x]; \
+    tools.encStepsSinceLastSignal[x] += tools.encLastDir[x]; \
+    if (tools.encLastSignal[x] != sig && abs(tools.encStepsSinceLastSignal[x] - tools.encLastChangeAt[x]) > ENC_MIN_STEPS) { \
+      if (sig) tools.encStepsSinceLastSignal[x] = 0; \
+      tools.encLastSignal[x] = sig; \
+      tools.encLastChangeAt[x] = tools.encStepsSinceLastSignal[x]; \
     } \
-    else if (abs(encStepsSinceLastSignal[x]) > encErrorSteps[x]) { \
-      if (encLastDir[x] > 0) \
-        setInterruptEvent(INTERRUPT_EVENT_ENC_DETECT); \
+    else if (abs(tools.encStepsSinceLastSignal[x]) > tools.encErrorSteps[x]) { \
+      if (tools.encLastDir[x] > 0) \
+        printer.setInterruptEvent(INTERRUPT_EVENT_ENC_DETECT); \
     } \
   }
 
-  #define RESET_EXTRUDER_ENC(x,dir) encLastDir[x] = dir;
+  #define RESET_EXTRUDER_ENC(x,dir) tools.encLastDir[x] = dir;
 
   #define ___TEST_EXTRUDER_ENC(x,y) _TEST_EXTRUDER_ENC(x,y)
   #define __TEST_EXTRUDER_ENC(x)    ___TEST_EXTRUDER_ENC(x,E ##x## _ENC_PIN)
@@ -397,7 +399,7 @@ void Stepper::set_directions() {
 
   #if HAS_EXT_ENCODER
 
-    switch(active_extruder) {
+    switch(tools.active_extruder) {
       case 0:
         RESET_EXTRUDER_ENC(0, count_direction[E_AXIS]); break;
       #if EXTRUDERS > 1
@@ -424,10 +426,6 @@ void Stepper::set_directions() {
 
   #endif
 }
-
-#if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-  extern volatile uint8_t e_hit;
-#endif
 
 /**
  * Stepper Driver Interrupt
@@ -510,7 +508,7 @@ void Stepper::isr() {
     current_block = NULL;
     planner.discard_current_block();
     #if ENABLED(SD_FINISHED_RELEASECOMMAND)
-      if (!cleaning_buffer_counter && (SD_FINISHED_STEPPERRELEASE)) enqueue_and_echo_commands_P(PSTR(SD_FINISHED_RELEASECOMMAND));
+      if (!cleaning_buffer_counter && (SD_FINISHED_STEPPERRELEASE)) commands.enqueue_and_echo_commands_P(PSTR(SD_FINISHED_RELEASECOMMAND));
     #endif
     _NEXT_ISR(HAL_STEPPER_TIMER_RATE / 10000); // Run at max speed - 10 KHz
     _ENABLE_ISRs(); // re-enable ISRs
@@ -568,8 +566,8 @@ void Stepper::isr() {
       step_events_completed = 0;
 
       #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-        e_hit = 2; // Needed for the case an endstop is already triggered before the new move begins.
-                   // No 'change' can be detected.
+        endstops.e_hit = 2; // Needed for the case an endstop is already triggered before the new move begins.
+                            // No 'change' can be detected.
       #endif
 
       #if ENABLED(Z_LATE_ENABLE)
@@ -598,9 +596,9 @@ void Stepper::isr() {
 
   // Update endstops state, if enabled
   #if ENABLED(ENDSTOP_INTERRUPTS_FEATURE)
-    if (e_hit && ENDSTOPS_ENABLED) {
+    if (endstops.e_hit && ENDSTOPS_ENABLED) {
       endstops.update();
-      e_hit--;
+      endstops.e_hit--;
     }
   #else
     if (ENDSTOPS_ENABLED) endstops.update();
@@ -748,7 +746,7 @@ void Stepper::isr() {
 
       #if HAS_EXT_ENCODER
         if (counter_E > 0) {
-          switch(active_extruder) {
+          switch(tools.active_extruder) {
             case 0:
               TEST_EXTRUDER_ENC0; break;
             #if EXTRUDERS > 1
@@ -1408,11 +1406,61 @@ void Stepper::init() {
         SET_INPUT(E0_ENC_PIN);
       #endif
     #endif
+    #if HAS_E1_ENC
+      #if ENABLED(E1_ENC_PULLUP)
+        SET_INPUT_PULLUP(E1_ENC_PIN);
+      #else
+        SET_INPUT(E1_ENC_PIN);
+      #endif
+    #endif
+    #if HAS_E2_ENC
+      #if ENABLED(E2_ENC_PULLUP)
+        SET_INPUT_PULLUP(E2_ENC_PIN);
+      #else
+        SET_INPUT(E2_ENC_PIN);
+      #endif
+    #endif
+    #if HAS_E3_ENC
+      #if ENABLED(E3_ENC_PULLUP)
+        SET_INPUT_PULLUP(E3_ENC_PIN);
+      #else
+        SET_INPUT(E3_ENC_PIN);
+      #endif
+    #endif
+    #if HAS_E4_ENC
+      #if ENABLED(E4_ENC_PULLUP)
+        SET_INPUT_PULLUP(E4_ENC_PIN);
+      #else
+        SET_INPUT(E4_ENC_PIN);
+      #endif
+    #endif
+    #if HAS_E5_ENC
+      #if ENABLED(E5_ENC_PULLUP)
+        SET_INPUT_PULLUP(E5_ENC_PIN);
+      #else
+        SET_INPUT(E5_ENC_PIN);
+      #endif
+    #endif
 
     HAL::delayMilliseconds(1);
 
     #if HAS_E0_ENC
-      encLastSignal[0] = READ_ENCODER(E0_ENC_PIN);
+      tools.encLastSignal[0] = READ_ENCODER(E0_ENC_PIN);
+    #endif
+    #if HAS_E1_ENC
+      tools.encLastSignal[1] = READ_ENCODER(E1_ENC_PIN);
+    #endif
+    #if HAS_E2_ENC
+      tools.encLastSignal[2] = READ_ENCODER(E2_ENC_PIN);
+    #endif
+    #if HAS_E3_ENC
+      tools.encLastSignal[3] = READ_ENCODER(E3_ENC_PIN);
+    #endif
+    #if HAS_E4_ENC
+      tools.encLastSignal[4] = READ_ENCODER(E4_ENC_PIN);
+    #endif
+    #if HAS_E5_ENC
+      tools.encLastSignal[5] = READ_ENCODER(E5_ENC_PIN);
     #endif
 
   #endif // HAS_EXT_ENCODER
@@ -1437,7 +1485,7 @@ void Stepper::init() {
 /**
  * Block until all buffered steps are executed
  */
-void Stepper::synchronize() { while (planner.blocks_queued()) idle(); }
+void Stepper::synchronize() { while (planner.blocks_queued()) printer.idle(); }
 
 /**
  * Set the stepper positions directly in steps
@@ -1798,7 +1846,7 @@ void Stepper::report_positions() {
   void Stepper::set_driver_current() {
     uint8_t digipot_motor = 0;
     for (uint8_t i = 0; i < 3 + DRIVER_EXTRUDERS; i++) {
-      digipot_motor = 255 * motor_current[i] / 3.3;
+      digipot_motor = 255 * printer.motor_current[i] / 3.3;
       ExternalDac::setValue(i, digipot_motor);
     }
   }
@@ -2015,3 +2063,13 @@ void Stepper::report_positions() {
   }
 
 #endif // HAS_MICROSTEPS
+
+/**
+ * Stepper Reset (RigidBoard, et.al.)
+ */
+#if HAS_STEPPER_RESET
+  void Stepper::disableStepperDrivers() {
+    OUT_WRITE(STEPPER_RESET_PIN, LOW);  // drive it down to hold in reset motor driver chips
+  }
+  void Stepper::enableStepperDrivers() { SET_INPUT(STEPPER_RESET_PIN); }  // set to input, which allows it to be pulled high by pullups
+#endif

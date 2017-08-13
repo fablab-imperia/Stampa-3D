@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -479,7 +479,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
       #if ENABLED(PREVENT_LENGTHY_EXTRUDE)
         if (labs(de) > (int32_t)mechanics.axis_steps_per_mm[E_AXIS_N] * (EXTRUDE_MAXLENGTH)) {
           #if ENABLED(EASY_LOAD)
-            if (!allow_lengthy_extrude_once) {
+            if (!printer.allow_lengthy_extrude_once) {
           #endif
           position[E_AXIS] = target[E_AXIS]; // Behave as if the move really took place, but ignore E part
           de = 0; // no difference
@@ -490,7 +490,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
           SERIAL_LM(ER, MSG_ERR_LONG_EXTRUDE_STOP);
           #if ENABLED(EASY_LOAD)
             }
-            allow_lengthy_extrude_once = false;
+            printer.allow_lengthy_extrude_once = false;
           #endif
         }
       #endif // PREVENT_LENGTHY_EXTRUDE
@@ -535,7 +535,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
   #endif
   if (de < 0) SBI(dirb, E_AXIS);
 
-  const float esteps_float = de * volumetric_multiplier[extruder] * flow_percentage[extruder] * 0.01;
+  const float esteps_float = de * tools.volumetric_multiplier[extruder] * tools.flow_percentage[extruder] * 0.01;
   const int32_t esteps = abs(esteps_float) + 0.5;
 
   // Calculate the buffer head after we push this byte
@@ -543,7 +543,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
 
   // If the buffer is full: good! That means we are well ahead of the robot.
   // Rest here until there is room in the buffer.
-  while (block_buffer_tail == next_buffer_head) idle();
+  while (block_buffer_tail == next_buffer_head) printer.idle();
 
   // Prepare to set up new block
   block_t* block = &block_buffer[block_buffer_head];
@@ -589,18 +589,18 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
   // For a mixing extruder, get steps for each
   #if ENABLED(COLOR_MIXING_EXTRUDER)
     for (uint8_t i = 0; i < MIXING_STEPPERS; i++)
-      block->mix_event_count[i] = mixing_factor[i] * block->step_event_count;
+      block->mix_event_count[i] = printer.mixing_factor[i] * block->step_event_count;
   #endif
 
   #if ENABLED(BARICUDA)
-    block->valve_pressure   = baricuda_valve_pressure;
-    block->e_to_p_pressure  = baricuda_e_to_p_pressure;
+    block->valve_pressure   = printer.baricuda_valve_pressure;
+    block->e_to_p_pressure  = printer.baricuda_e_to_p_pressure;
   #endif
 
   block->active_extruder = extruder;
 
   #if HAS_MKMULTI_TOOLS
-    block->active_driver = active_driver;
+    block->active_driver = tools.active_driver;
   #else
     block->active_driver = extruder;
   #endif

@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -130,10 +130,10 @@
           if (c == '\n') {
             switch (state) {
               case state_M108:
-                wait_for_user = wait_for_heatup = false;
+                printer.wait_for_user = thermalManager.wait_for_heatup = false;
                 break;
               case state_M112:
-                kill(PSTR(MSG_KILLED));
+                printer.kill(PSTR(MSG_KILLED));
                 break;
               case state_M410:
                 quickstop_stepper();

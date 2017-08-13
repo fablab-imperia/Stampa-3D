@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -513,10 +513,7 @@
     #if ENABLED(DELTA_AUTO_CALIBRATION_2)
       +1
     #endif
-    #if ENABLED(DELTA_AUTO_CALIBRATION_3)
-      +1
-    #endif
-    , "Select only one of: DELTA_AUTO_CALIBRATION_1, DELTA_AUTO_CALIBRATION_2 or DELTA_AUTO_CALIBRATION_3"
+    , "Select only one of: DELTA_AUTO_CALIBRATION_1 or DELTA_AUTO_CALIBRATION_2"
   );
 #endif
 
@@ -648,12 +645,8 @@ static_assert(1 >= 0
 
 #endif
 
-#if !HAS_BED_PROBE || ENABLED(PROBE_MANUALLY)
-  #if ENABLED(DELTA_AUTO_CALIBRATION_3)
-    #error "DELTA_AUTO_CALIBRATION_3 requires a probe! Define a Z Servo, BLTOUCH, Z_PROBE_ALLEN_KEY, Z_PROBE_SLED, or Z_PROBE_FIX_MOUNTED."
-  #elif ENABLED(Z_MIN_PROBE_REPEATABILITY_TEST)
-    #error "Z_MIN_PROBE_REPEATABILITY_TEST requires a probe! Define a Z Servo, BLTOUCH, Z_PROBE_ALLEN_KEY, Z_PROBE_SLED, or Z_PROBE_FIX_MOUNTED."
-  #endif
+#if (!HAS_BED_PROBE || ENABLED(PROBE_MANUALLY)) && ENABLED(Z_MIN_PROBE_REPEATABILITY_TEST)
+  #error "Z_MIN_PROBE_REPEATABILITY_TEST requires a probe! Define a Z Servo, BLTOUCH, Z_PROBE_ALLEN_KEY, Z_PROBE_SLED, or Z_PROBE_FIX_MOUNTED."
 #endif
 
 /**
@@ -664,73 +657,19 @@ static_assert(1 >= 0
 #endif
 
 /**
- * Make sure Z_SAFE_HOMING point is reachable
+ * Check auto bed leveling sub-options, especially probe points
  */
-#if ENABLED(Z_SAFE_HOMING)
-  #if Z_SAFE_HOMING_X_POINT < MIN_PROBE_X || Z_SAFE_HOMING_X_POINT > MAX_PROBE_X
-    #if HAS_BED_PROBE
-      #error "Z_SAFE_HOMING_X_POINT can't be reached by the Z probe."
-    #else
-      #error "Z_SAFE_HOMING_X_POINT can't be reached by the nozzle."
-    #endif
-  #elif Z_SAFE_HOMING_Y_POINT < MIN_PROBE_Y || Z_SAFE_HOMING_Y_POINT > MAX_PROBE_Y
-    #if HAS_BED_PROBE
-      #error "Z_SAFE_HOMING_Y_POINT can't be reached by the Z probe."
-    #else
-      #error "Z_SAFE_HOMING_Y_POINT can't be reached by the nozzle."
+#if ABL_GRID
+
+  #if DISABLED(DELTA_PROBEABLE_RADIUS)
+    // Be sure points are in the right order
+    #if LEFT_PROBE_BED_POSITION > RIGHT_PROBE_BED_POSITION
+      #error "LEFT_PROBE_BED_POSITION must be less than RIGHT_PROBE_BED_POSITION."
+    #elif FRONT_PROBE_BED_POSITION > BACK_PROBE_BED_POSITION
+      #error "FRONT_PROBE_BED_POSITION must be less than BACK_PROBE_BED_POSITION."
     #endif
   #endif
-#endif // Z_SAFE_HOMING
-
-/**
- * Auto Bed Leveling
- */
-#if HAS_ABL
-
-  /**
-   * Check auto bed leveling sub-options, especially probe points
-   */
-  #if ABL_GRID
-
-    #if DISABLED(DELTA_PROBEABLE_RADIUS)
-      // Be sure points are in the right order
-      #if LEFT_PROBE_BED_POSITION > RIGHT_PROBE_BED_POSITION
-        #error "LEFT_PROBE_BED_POSITION must be less than RIGHT_PROBE_BED_POSITION."
-      #elif FRONT_PROBE_BED_POSITION > BACK_PROBE_BED_POSITION
-        #error "FRONT_PROBE_BED_POSITION must be less than BACK_PROBE_BED_POSITION."
-      #endif
-      // Make sure probing points are reachable
-      #if LEFT_PROBE_BED_POSITION < MIN_PROBE_X
-        #error "The given LEFT_PROBE_BED_POSITION can't be reached by the Z probe."
-      #elif RIGHT_PROBE_BED_POSITION > MAX_PROBE_X
-        #error "The given RIGHT_PROBE_BED_POSITION can't be reached by the Z probe."
-      #elif FRONT_PROBE_BED_POSITION < MIN_PROBE_Y
-        #error "The given FRONT_PROBE_BED_POSITION can't be reached by the Z probe."
-      #elif BACK_PROBE_BED_POSITION > MAX_PROBE_Y
-        #error "The given BACK_PROBE_BED_POSITION can't be reached by the Z probe."
-      #endif
-    #endif
-
-  #else // !ABL_GRID
-
-    // Check the triangulation points
-    #if ABL_PROBE_PT_1_X < MIN_PROBE_X || ABL_PROBE_PT_1_X > MAX_PROBE_X
-      #error "The given ABL_PROBE_PT_1_X can't be reached by the Z probe."
-    #elif ABL_PROBE_PT_2_X < MIN_PROBE_X || ABL_PROBE_PT_2_X > MAX_PROBE_X
-      #error "The given ABL_PROBE_PT_2_X can't be reached by the Z probe."
-    #elif ABL_PROBE_PT_3_X < MIN_PROBE_X || ABL_PROBE_PT_3_X > MAX_PROBE_X
-      #error "The given ABL_PROBE_PT_3_X can't be reached by the Z probe."
-    #elif ABL_PROBE_PT_1_Y < MIN_PROBE_Y || ABL_PROBE_PT_1_Y > MAX_PROBE_Y
-      #error "The given ABL_PROBE_PT_1_Y can't be reached by the Z probe."
-    #elif ABL_PROBE_PT_2_Y < MIN_PROBE_Y || ABL_PROBE_PT_2_Y > MAX_PROBE_Y
-      #error "The given ABL_PROBE_PT_2_Y can't be reached by the Z probe."
-    #elif ABL_PROBE_PT_3_Y < MIN_PROBE_Y || ABL_PROBE_PT_3_Y > MAX_PROBE_Y
-      #error "The given ABL_PROBE_PT_3_Y can't be reached by the Z probe."
-    #endif
-
-  #endif // !ABL_GRID
-
-#endif // HAS_ABL
+#endif // ABL_GRID
 
 /**
  * ENABLE_LEVELING_FADE_HEIGHT requirements
@@ -1498,9 +1437,6 @@ static_assert(1 >= 0
   #if DISABLED(DELTA_PRINTABLE_RADIUS)
     #error DEPENDENCY ERROR: Missing setting DELTA_PRINTABLE_RADIUS
   #endif
-  #if DISABLED(DEFAULT_DELTA_RADIUS)
-    #error DEPENDENCY ERROR: Missing setting DEFAULT_DELTA_RADIUS
-  #endif
   #if DISABLED(TOWER_A_ENDSTOP_ADJ)
     #error DEPENDENCY ERROR: Missing setting TOWER_A_ENDSTOP_ADJ
   #endif
@@ -1543,9 +1479,6 @@ static_assert(1 >= 0
     #endif
     #if DISABLED(Z_PROBE_SPEED)
       #error DEPENDENCY ERROR: Missing setting Z_PROBE_SPEED
-    #endif
-    #if DISABLED(AUTOCALIBRATION_PRECISION)
-      #error DEPENDENCY ERROR: Missing setting AUTOCALIBRATION_PRECISION
     #endif
     #if DISABLED(X_PROBE_OFFSET_FROM_NOZZLE)
       #error DEPENDENCY ERROR: Missing setting X_PROBE_OFFSET_FROM_NOZZLE
@@ -1752,10 +1685,6 @@ static_assert(1 >= 0
 
 #if MECH(COREXZ) && ENABLED(Z_LATE_ENABLE)
   #error CONFLICT ERROR: "Z_LATE_ENABLE can't be used with COREXZ."
-#endif
-
-#if ENABLED(POWER_CONSUMPTION) && !PIN_EXISTS(POWER_CONSUMPTION)
-  #error DEPENDENCY ERROR: You have to set POWER_CONSUMPTION_PIN to a valid pin if you enable POWER_CONSUMPTION
 #endif
 
 #if ENABLED(CHDK) || ENABLED(PHOTOGRAPH)
@@ -2055,6 +1984,28 @@ static_assert(1 >= 0
   #elif !IS_CARTESIAN
     #error "G38_PROBE_TARGET requires a Cartesian machine."
   #endif
+#endif
+
+/**
+ * RGB_LED Requirements
+ */
+#define _RGB_TEST (PIN_EXISTS(RGB_LED_R) && PIN_EXISTS(RGB_LED_G) && PIN_EXISTS(RGB_LED_B))
+#if ENABLED(RGB_LED)
+  #if !_RGB_TEST
+    #error "RGB_LED requires RGB_LED_R_PIN, RGB_LED_G_PIN, and RGB_LED_B_PIN."
+  #elif ENABLED(RGBW_LED)
+    #error "Please enable only one of RGB_LED and RGBW_LED."
+  #endif
+#elif ENABLED(RGBW_LED)
+  #if !(_RGB_TEST && PIN_EXISTS(RGB_LED_W))
+    #error "RGBW_LED requires RGB_LED_R_PIN, RGB_LED_G_PIN, RGB_LED_B_PIN, and RGB_LED_W_PIN."
+  #endif
+#elif ENABLED(NEOPIXEL_RGBW_LED)
+  #if !(PIN_EXISTS(NEOPIXEL) && NEOPIXEL_PIXELS > 0)
+    #error "NEOPIXEL_RGBW_LED requires NEOPIXEL_PIN and NEOPIXEL_PIXELS."
+  #endif
+#elif ENABLED(PRINTER_EVENT_LEDS) && DISABLED(BLINKM) && DISABLED(PCA9632) && !HAS_NEOPIXEL
+  #error "PRINTER_EVENT_LEDS requires BLINKM, PCA9632, RGB_LED, RGBW_LED or NEOPIXEL_LED."
 #endif
 
 /**

@@ -1,9 +1,9 @@
 /**
- * MK4duo 3D Printer Firmware
+ * MK4duo Firmware for 3D Printer, Laser and CNC
  *
  * Based on Marlin, Sprinter and grbl
  * Copyright (C) 2011 Camiel Gubbels / Erik van der Zalm
- * Copyright (C) 2013 - 2017 Alberto Cotronei @MagoKimbra
+ * Copyright (C) 2013 Alberto Cotronei @MagoKimbra
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -421,9 +421,9 @@
   #if EXTRUDERS > 1
     #define XYZE_N    3 + EXTRUDERS
     #define E_AXIS_N  (E_AXIS + extruder)
-    #define E_INDEX   (E_AXIS + active_extruder)
-    #define GET_TARGET_EXTRUDER(CMD) if (get_target_extruder_from_command(CMD)) return
-    #define TARGET_EXTRUDER target_extruder
+    #define E_INDEX   (E_AXIS + tools.active_extruder)
+    #define GET_TARGET_EXTRUDER(CMD) if (printer.get_target_tool_from_command(CMD)) return
+    #define TARGET_EXTRUDER tools.target_extruder
   #elif EXTRUDERS == 1
     #define XYZE_N    XYZE
     #define E_AXIS_N  E_AXIS
@@ -444,13 +444,16 @@
    * Multi-hotends support
    */
   #if HOTENDS > 1
-    #define GET_TARGET_HOTEND(CMD) if (get_target_hotend_from_command(CMD)) return
+    #define GET_TARGET_HOTEND(CMD) if (printer.get_target_tool_from_command(CMD)) return
   #else
     #define GET_TARGET_HOTEND(CMD) NOOP
   #endif
 
   #define HAS_SOFTWARE_ENDSTOPS (ENABLED(MIN_SOFTWARE_ENDSTOPS) || ENABLED(MAX_SOFTWARE_ENDSTOPS))
   #define HAS_RESUME_CONTINUE   (HAS_LCD || ENABLED(EMERGENCY_PARSER))
-  #define HAS_COLOR_LEDS        (ENABLED(BLINKM) || ENABLED(RGB_LED) || ENABLED(RGBW_LED) || ENABLED(PCA9632))
+
+  // RGB Leds
+  #define HAS_NEOPIXEL          (ENABLED(NEOPIXEL_RGB_LED) || ENABLED(NEOPIXEL_RGBW_LED))
+  #define HAS_COLOR_LEDS        (ENABLED(BLINKM) || ENABLED(RGB_LED) || ENABLED(RGBW_LED) || ENABLED(PCA9632) || ENABLED(NEOPIXEL_RGB_LED) || ENABLED(NEOPIXEL_RGBW_LED))
 
 #endif /* _CONDITIONALS_PRE_H_ */
